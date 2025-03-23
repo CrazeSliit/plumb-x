@@ -2,9 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { InventoryChart, SalesChart } from '@/components/Charts.js';
 import Link from 'next/link';
-import { FaBell, FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
-import InventoryModal from '@/components/inventory/InventoryModal';
-import { useRouter } from 'next/navigation'; // Add this import
+import { FaBell } from 'react-icons/fa';
 
 function StockStats({ stats }) {
   return (
@@ -84,11 +82,8 @@ function getInventoryChartData(categories) {
 }
 
 export default function InventoryManagementPage() {
-  const router = useRouter();
   const [stats, setStats] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);  // Add loading state
-  const [error, setError] = useState(null);      // Add error state
   const [actions, setActions] = useState([
     { label: 'Add New Item', bgColor: 'bg-yellow-500 text-black', hoverColor: 'bg-yellow-400' },
     { label: 'Inventory Report', bgColor: 'bg-white border-2 border-yellow-500', hoverColor: 'bg-gray-50' },
@@ -97,22 +92,8 @@ export default function InventoryManagementPage() {
   ]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        await Promise.all([fetchStats(), fetchCategories()]);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadData();
-  }, []);
-
-  const fetchStats = async () => {
-    try {
+    // Fetch stats and categories from an API or database
+    const fetchStats = async () => {
       // Simulate API call
       const data = [
         { title: 'Total Items', value: '1,234', color: 'text-black' },
@@ -121,54 +102,29 @@ export default function InventoryManagementPage() {
         { title: 'Total Value', value: 'Rs52,234', color: 'text-black' },
       ];
       setStats(data);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+    };
 
-  const fetchCategories = async () => {
-    try {
-      console.log('Fetching categories...');
-      const response = await fetch('/api/inventory/categories');
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch categories');
-      }
-      
-      const data = await response.json();
-      console.log('Fetched categories:', data);
-      
-      // If no categories returned, use fallback data
-      if (!data || data.length === 0) {
-        const fallbackCategories = [
-          { name: 'Pipes', image: '/image/minimalist-construction-pvc-pipes-assortment.jpg', inStock: 0, link: '/category/pipes' },
-          { name: 'Fittings', image: '/image/sanitary-equipment.jpg', inStock: 0, link: '/category/fittings' },
-          // ...existing fallback categories...
-        ];
-        setCategories(fallbackCategories);
-        return;
-      }
-      
+    const fetchCategories = async () => {
+      // Simulate API call
+      const data = [
+        { name: 'Pipes', image: '/image/minimalist-construction-pvc-pipes-assortment.jpg', inStock: 120, link: '/category/pipes' },
+        { name: 'Fittings', image: '/image/sanitary-equipment.jpg', inStock: 80, link: '/category/fittings' },
+        { name: 'Valves', image: '/image/3870.jpg', inStock: 50, link: '/category/valves' },
+        { name: 'Tools', image: '/image/tools-materials-sanitary-works.jpg', inStock: 200, link: '/category/tools' },
+        { name: 'Fixtures', image: '/image/Collection of metal pipes.jpg', inStock: 30, link: '/category/fixtures' },
+        { name: 'Sealants', image: '/image/123.jpg', inStock: 60, link: '/category/sealants' },
+        { name: 'Safety Equipment', image: '/image/directly-table-with-work-tools.jpg', inStock: 40, link: '/category/safety-equipment' },
+        { name: 'Others', image: '/image/wrench-hammer.jpg', inStock: 10, link: '/category/others' },
+      ];
       setCategories(data);
-    } catch (err) {
-      console.error('Error fetching categories:', err);
-      setError(err.message);
-      // Set fallback data on error
-      setCategories([
-        { name: 'Pipes', image: '/image/minimalist-construction-pvc-pipes-assortment.jpg', inStock: 0, link: '/category/pipes' },
-        { name: 'Fittings', image: '/image/sanitary-equipment.jpg', inStock: 0, link: '/category/fittings' },
-        // ...existing fallback categories...
-      ]);
-    }
-  };
+    };
+
+    fetchStats();
+    fetchCategories();
+  }, []);
 
   // Only show charts if categories have loaded
   const showCharts = categories.length > 0;
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="min-h-screen bg-pattern-plumbing p-6">

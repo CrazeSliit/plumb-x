@@ -9,9 +9,7 @@ import {
   ArrowPathIcon,
   PlusCircleIcon,
   ChartBarIcon,
-  ArrowDownTrayIcon,
-  PencilIcon,
-  TrashIcon
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import { samplePipesData } from '../../../data/sampleData';
 

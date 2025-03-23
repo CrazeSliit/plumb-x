@@ -8,13 +8,9 @@ import {
   ArrowPathIcon,
   PlusCircleIcon,
   ChartBarIcon,
-  ArrowDownTrayIcon,
-  PencilIcon,
-  PlusIcon,
-  TrashIcon
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import { sampleToolsData } from '../../../data/sampleData';
-import { useRouter } from 'next/navigation';
 
 // Add this helper function to load items from localStorage
 const loadStoredItems = () => {
@@ -63,7 +59,6 @@ export default function ToolsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
-  const router = useRouter();
   
   // Category statistics
   const [stats, setStats] = useState({
@@ -163,28 +158,6 @@ export default function ToolsPage() {
       if (valueA > valueB) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-
-  // Add edit handler
-  const handleEdit = (item) => {
-    router.push(`/inventory/add_new?edit=true&id=${item.id}`);
-  };
-
-  // Add delete handler
-  const handleDelete = async (itemId) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-
-    try {
-      const response = await fetch(`/api/inventory/${itemId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) throw new Error('Failed to delete item');
-      fetchItems();
-    } catch (err) {
-      console.error('Error deleting item:', err);
-      setError(err.message);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -454,20 +427,11 @@ export default function ToolsPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </Link>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <PencilIcon className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </div>
+                    <button className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>
