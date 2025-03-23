@@ -69,81 +69,85 @@ export default function AddNewItem() {
     stockLevel: 0,
     material: 'PVC',
     description: '',
+    imageUrl: '', // Add this field
   });
-  const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Set isMounted to true once component mounts
-  useEffect(() => {
-    setIsMounted(true);
-    // Remove auto-generation of item code
-  }, []);
-  
-  // Load item data if in edit mode - only after mounting
-  useEffect(() => {
-    if (!isMounted || !isEditMode) return;
-    
-    try {
-      const itemToUpdate = safeLocalStorage.getItem('itemToUpdate');
-      if (itemToUpdate) {
-        const parsedItem = JSON.parse(itemToUpdate);
-        
-        // Log the item we're trying to edit for debugging
-        console.log("Loading item for editing:", parsedItem);
-        
-        setFormData({
-          itemCode: parsedItem.itemCode || '',
-          itemName: parsedItem.name || parsedItem.itemName || '',
-          price: parsedItem.price || '',
-          size: parsedItem.size || '',
-          category: parsedItem.category || '',
-          stockLevel: parsedItem.stockLevel || 0,
-          material: parsedItem.material || 'PVC',
-          description: parsedItem.description || '',
-          id: parsedItem.id, // Keep the original ID for updating
-          // Store any other original data we need for finding the item
-          originalItemCode: parsedItem.itemCode
-        });
-        
-        // Set image preview if available
-        if (parsedItem.image) {
-          setImagePreview(parsedItem.image);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading item data for editing:", error);
-    }
-  }, [isEditMode, isMounted]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // Add function to generate item code
+  const generateItemCode = (material) => {
+    const prefix = material?.substring(0, 3).toUpperCase() || 'ITM';
+    const timestamp = Date.now().toString().slice(-5);
+    return `${prefix}-${timestamp}`;
   };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Check file size - limit to 2MB to avoid localStorage issues
-      if (file.size > 2 * 1024 * 1024) {
-        alert("Image is too large. Please select an image under 2MB.");
-        return;
+  // Update useEffect for setting initial item code
+  useEffect(() => {
+    setIsMounted(true);
+    if (!isEditMode) {
+      // Auto-generate item code when material changes
+      setFormData(prev => ({
+        ...prev,
+        itemCode: generateItemCode(prev.material)
+      }));
+    }
+  }, [isEditMode, formData.material]);
+
+  // Update the useEffect for fetching edit item data
+  useEffect(() => {
+    const fetchEditItem = async () => {
+      if (!isMounted) return;
+
+      const itemId = searchParams.get('id');
+      if (!itemId) return;
+
+      try {
+        setIsSubmitting(true); // Show loading state
+        console.log('Fetching item with ID:', itemId); // Debug log
+
+        const response = await fetch(`/api/inventory/${itemId}`);
+        if (!response.ok) throw new Error('Failed to fetch item');
+        
+        const itemData = await response.json();
+        console.log('Fetched item data:', itemData); // Debug log
+        
+        setFormData({
+          id: itemData._id,
+          itemCode: itemData.sku,
+          itemName: itemData.itemName,
+          price: itemData.price,
+          size: itemData.size,
+          category: itemData.category,
+          stockLevel: itemData.quantity,
+          material: itemData.material,
+          description: itemData.description || '',
+          imageUrl: itemData.imageUrl || itemData.image || '', // Handle both image field names
+        });
+      } catch (error) {
+        console.error("Error loading item for edit:", error);
+        alert("Error loading item data. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    if (isEditMode) {
+      fetchEditItem();
+    }
+  }, [isMounted, isEditMode, searchParams]);
+
+  // Update handleInputChange to regenerate item code when material changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const updates = { [name]: value };
+      
+      // Auto-generate item code when material changes and not in edit mode
+      if (name === 'material' && !isEditMode) {
+        updates.itemCode = generateItemCode(value);
       }
       
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        // Store image data in our state
-        setImagePreview(reader.result);
-        console.log("Image loaded successfully, size:", Math.round(reader.result.length / 1024), "KB");
-      };
-      reader.onerror = () => {
-        console.error("Error reading file");
-        alert("There was an error processing this image. Please try another.");
-      };
-      reader.readAsDataURL(file);
-    }
+      return { ...prev, ...updates };
+    });
   };
 
   // Store or update item in localStorage
@@ -261,40 +265,54 @@ export default function AddNewItem() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Don't do anything if not mounted
-    if (!isMounted) {
-      console.warn("Cannot submit form - component not mounted");
-      return;
-    }
+    if (!isMounted) return;
     
     setIsSubmitting(true);
     
-    // Prepare the item data with additional fields
-    const itemToSave = {
-      ...formData,
-      name: formData.itemName, // Ensure name field matches expected format in added_items page
-      id: formData.id || Date.now(),
-      itemCode: formData.itemCode || `ITEM${Math.floor(Math.random() * 10000)}`,
-      dateAdded: isEditMode ? formData.dateAdded : new Date().toISOString(),
-      dateModified: new Date().toISOString(),
-      // Make sure image is properly included
-      image: imagePreview,
-      // Include the original itemCode to help with matching if ID fails
-      originalItemCode: formData.originalItemCode
-    };
-    
-    console.log(`${isEditMode ? 'Updating' : 'Adding'} item with ID: ${itemToSave.id}, Code: ${itemToSave.itemCode}`);
-    
-    // Store data
-    const saved = storeAddedItem(itemToSave, isEditMode);
-    
-    // Navigate with a unique timestamp to force page refresh
-    setTimeout(() => {
-      router.push(`/added_items?category=${formData.category || 'items'}&success=${saved ? 'true' : 'false'}&action=${isEditMode ? 'updated' : 'added'}&t=${Date.now()}`);
-    }, 500); // Small delay to show submitting state
+    try {
+      const itemData = {
+        itemName: formData.itemName,
+        category: formData.category,
+        quantity: parseInt(formData.stockLevel) || 0,
+        price: parseFloat(formData.price) || 0,
+        size: formData.size,
+        material: formData.material,
+        imageUrl: formData.imageUrl, // Make sure this matches the backend expectation
+        description: formData.description || '',
+        supplier: formData.supplier || '',
+        reorderPoint: parseInt(formData.reorderPoint) || 10,
+        location: formData.location || '',
+        sku: formData.itemCode
+      };
+
+      const url = isEditMode ? `/api/inventory/${formData.id}` : '/api/inventory';
+      const method = isEditMode ? 'PUT' : 'POST';
+
+      console.log('Submitting data:', itemData); // Debug log
+
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(itemData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save item');
+      }
+
+      const savedData = await response.json();
+      console.log('Server response:', savedData); // Debug log
+
+      router.push(`/inventory/added-items?category=${formData.category}&success=true&action=${isEditMode ? 'updated' : 'added'}&t=${Date.now()}`);
+    } catch (error) {
+      console.error('Error saving item:', error);
+      alert(error.message || 'Failed to save item. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -305,35 +323,29 @@ export default function AddNewItem() {
         </h1>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Image Upload */}
+          {/* Image URL */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Item Image</label>
-            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
-              <div className="space-y-1 text-center">
-                {imagePreview ? (
-                  <div className="relative w-48 h-48 mx-auto">
-                    <Image
-                      src={imagePreview}
-                      alt="Preview"
-                      fill
-                      className="object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div className="mx-auto h-48 w-48 flex items-center justify-center">
-                    <svg className="h-24 w-24 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                )}
-                <div className="flex justify-center text-sm text-gray-600">
-                  <label className="relative cursor-pointer bg-white rounded-md font-medium text-yellow-500 hover:text-yellow-400">
-                    <span>Upload a file</span>
-                    <input type="file" className="sr-only" onChange={handleImageUpload} accept="image/*" />
-                  </label>
-                </div>
+            <label className="block text-sm font-medium text-gray-700">
+              Image URL
+            </label>
+            <input
+              type="url"
+              name="imageUrl"
+              value={formData.imageUrl || ''}
+              onChange={handleInputChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500"
+              placeholder="https://example.com/image.jpg"
+            />
+            {formData.imageUrl && (
+              <div className="mt-2">
+                <img
+                  src={formData.imageUrl}
+                  alt="Preview"
+                  className="h-32 w-32 object-cover rounded-md"
+                  onError={(e) => e.target.style.display = 'none'}
+                />
               </div>
-            </div>
+            )}
           </div>
 
           {/* Item Code - Modified to be manually entered */}
